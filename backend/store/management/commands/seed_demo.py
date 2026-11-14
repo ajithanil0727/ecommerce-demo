@@ -10,6 +10,7 @@ import random
 from django.contrib.auth import get_user_model
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
+from django.db import transaction
 from PIL import Image, ImageDraw, ImageFont
 
 from orders.models import Order
@@ -143,22 +144,27 @@ class Command(BaseCommand):
                                      phone="9000000002", address="12 MG Road",
                                      city="Kochi", pincode="682016")
 
-        if Product.objects.exists():
+        # A store with photos has been seeded (or stocked by an admin) already. A store
+        # with products but no photos at all is a seed that failed part-way: finish it.
+        if ProductImage.objects.exists():
             self.stdout.write("Store already has products; skipping (use --reset to rebuild).")
             return
 
-        events = {}
-        for data in EVENTS:
-            events[data["name"]], _ = Event.objects.get_or_create(name=data["name"], defaults=data)
+        with transaction.atomic():
+            events = {}
+            for data in EVENTS:
+                events[data["name"]], _ = Event.objects.get_or_create(name=data["name"],
+                                                                      defaults=data)
 
-        for name, category, price, mrp, stock, hue, tags, description in PRODUCTS:
-            product = Product.objects.create(name=name, category=category, price=price, mrp=mrp,
-                                             stock=stock, description=description)
-            product.events.set([events[tag] for tag in tags])
-            for variant in range(3):
-                image = ProductImage(product=product, sort_order=variant)
-                image.image.save(f"{product.slug}-{variant + 1}.jpg",
-                                 ContentFile(make_photo(name, hue, variant)), save=True)
+            for name, category, price, mrp, stock, hue, tags, description in PRODUCTS:
+                product, _ = Product.objects.get_or_create(name=name, defaults=dict(
+                    category=category, price=price, mrp=mrp, stock=stock,
+                    description=description))
+                product.events.set([events[tag] for tag in tags])
+                for variant in range(3):
+                    image = ProductImage(product=product, sort_order=variant)
+                    image.image.save(f"{product.slug}-{variant + 1}.jpg",
+                                     ContentFile(make_photo(name, hue, variant)), save=True)
 
         self.stdout.write(self.style.SUCCESS(
             f"Seeded {len(PRODUCTS)} products and {len(EVENTS)} events.\n"
