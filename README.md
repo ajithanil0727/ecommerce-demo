@@ -58,7 +58,7 @@ Starts Postgres, the backend (http://localhost:8000) and the frontend (http://lo
 `.github/workflows/ci-cd.yml` runs on GitHub Actions:
 
 - **Pull request to `main`** — builds both container images and runs the backend tests inside the backend container.
-- **Merge to `main`** — repeats those checks, publishes the images to GitHub Container Registry, then calls the host's deploy hooks (`BACKEND_DEPLOY_HOOK` and `FRONTEND_DEPLOY_HOOK` repository secrets). Nothing deploys if a test fails.
+- **Merge to `main`** — repeats those checks, then calls the host's deploy hooks (`BACKEND_DEPLOY_HOOK` and `FRONTEND_DEPLOY_HOOK` repository secrets); the host builds each container from its Dockerfile. Nothing deploys if a test fails.
 
 ## WhatsApp messages
 
