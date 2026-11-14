@@ -2,7 +2,9 @@ import io
 import tempfile
 from unittest import mock
 
-from django.test import override_settings
+import cloudinary
+from django.core.files.base import ContentFile
+from django.test import SimpleTestCase, override_settings
 from PIL import Image
 from rest_framework.test import APITestCase
 
@@ -10,6 +12,7 @@ from accounts.models import User
 from orders.models import Order
 from orders.whatsapp import to_e164
 from store.models import Event, Product
+from store.storage import CloudinaryStorage
 
 ADDRESS = {"full_name": "Asha", "phone": "98765 43210", "address": "1 Main St",
            "city": "Kochi", "pincode": "682001"}
@@ -23,8 +26,35 @@ def png_upload():
     return buffer
 
 
+LOCAL_STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+}
+
+
+class CloudinaryStorageTests(SimpleTestCase):
+    def test_upload_url_and_delete(self):
+        storage = CloudinaryStorage()
+        name = storage.get_available_name("products/Blue Mug.JPG")
+        self.assertRegex(name, r"^shopfest/products/Blue Mug-[0-9a-f]{8}\.jpg$")
+        with mock.patch("store.storage.cloudinary.uploader.upload") as upload:
+            upload.return_value = {"public_id": "shopfest/products/mug-ab12cd34", "format": "jpg"}
+            saved = storage._save("shopfest/products/mug-ab12cd34.jpg", ContentFile(b"img"))
+        self.assertEqual(saved, "shopfest/products/mug-ab12cd34.jpg")
+        self.assertEqual(upload.call_args.kwargs["public_id"], "shopfest/products/mug-ab12cd34")
+        with mock.patch.dict("os.environ", {"CLOUDINARY_URL": "cloudinary://k:s@demo"}):
+            cloudinary.reset_config()
+            self.assertEqual(
+                storage.url(saved),
+                "https://res.cloudinary.com/demo/image/upload/v1/shopfest/products/mug-ab12cd34.jpg")
+        cloudinary.reset_config()
+        with mock.patch("store.storage.cloudinary.uploader.destroy") as destroy:
+            storage.delete(saved)
+        self.assertEqual(destroy.call_args.args[0], "shopfest/products/mug-ab12cd34")
+
+
 @override_settings(MEDIA_ROOT=tempfile.mkdtemp(), TWILIO_ACCOUNT_SID="", TWILIO_AUTH_TOKEN="",
-                   TWILIO_CONTENT_SID="")
+                   TWILIO_CONTENT_SID="", STORAGES=LOCAL_STORAGES)
 class StoreFlowTests(APITestCase):
     def setUp(self):
         self.admin = User.objects.create_superuser("admin@x.com", "secret123")

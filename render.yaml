@@ -1,0 +1,32 @@
+# Render Blueprint: the backend container. In Render choose New > Blueprint and pick
+# this repository; it asks for the values marked "sync: false".
+services:
+  - type: web
+    name: shopfest-backend
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /
+    # Deploys are started by the GitHub pipeline (deploy hook) after tests pass,
+    # not by every push.
+    autoDeploy: false
+    envVars:
+      - key: DEBUG
+        value: "0"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        sync: false
+      - key: TWILIO_CONTENT_SID
+        sync: false

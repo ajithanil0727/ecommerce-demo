@@ -60,6 +60,18 @@ Starts Postgres, the backend (http://localhost:8000) and the frontend (http://lo
 - **Pull request to `main`** — builds both container images and runs the backend tests inside the backend container.
 - **Merge to `main`** — repeats those checks, then calls the host's deploy hooks (`BACKEND_DEPLOY_HOOK` and `FRONTEND_DEPLOY_HOOK` repository secrets); the host builds each container from its Dockerfile. Nothing deploys if a test fails.
 
+## Hosting
+
+| Part | Service | Notes |
+|---|---|---|
+| Backend container | Render (`render.yaml`) | Built from `backend/Dockerfile`; free plan sleeps after 15 idle minutes |
+| Frontend | Vercel (root directory `frontend`) | Needs `VITE_API_URL` set to the backend address |
+| Database | Neon Postgres | Connection string goes in `DATABASE_URL` |
+| Product photos | Cloudinary | `CLOUDINARY_URL`; without it uploads stay on the local disk |
+
+Both hosts have automatic deploy-on-push switched off. The pipeline calls their deploy hooks
+only after the tests pass on `main`.
+
 ## WhatsApp messages
 
 Until a provider is configured, each confirmation is printed in the backend console and saved on the

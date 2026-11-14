@@ -79,7 +79,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 # SQLite locally; set DATABASE_URL (Postgres) when hosted.
 DATABASES = {
     "default": dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}", conn_max_age=600
+        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}", conn_max_age=600,
+        conn_health_checks=True,
     )
 }
 
@@ -97,8 +98,12 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# Uploaded photos: local disk by default, Cloudinary when CLOUDINARY_URL is set
+# (cloudinary://<api_key>:<api_secret>@<cloud_name>; the library reads it itself).
+MEDIA_BACKEND = ("store.storage.CloudinaryStorage" if os.environ.get("CLOUDINARY_URL")
+                 else "django.core.files.storage.FileSystemStorage")
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": {"BACKEND": MEDIA_BACKEND},
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 
