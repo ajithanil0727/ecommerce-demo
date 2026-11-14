@@ -1,0 +1,48 @@
+# Run the whole store locally:  docker compose up --build
+# Store: http://localhost:5173   API: http://localhost:8000
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: shopfest
+      POSTGRES_USER: shopfest
+      POSTGRES_PASSWORD: shopfest-local-only
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopfest"]
+      interval: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    environment:
+      DEBUG: "1"
+      DATABASE_URL: postgres://shopfest:shopfest-local-only@db:5432/shopfest
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      # Twilio keys are read from your shell or a .env file next to this one, if set.
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_WHATSAPP_FROM: ${TWILIO_WHATSAPP_FROM:-whatsapp:+14155238886}
+      TWILIO_CONTENT_SID: ${TWILIO_CONTENT_SID:-}
+    volumes:
+      - media-data:/app/media
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:
+  media-data:
