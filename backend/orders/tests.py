@@ -4,6 +4,7 @@ from unittest import mock
 
 import cloudinary
 from django.core.files.base import ContentFile
+from django.core.management import call_command
 from django.test import SimpleTestCase, override_settings
 from PIL import Image
 from rest_framework.test import APITestCase
@@ -11,7 +12,7 @@ from rest_framework.test import APITestCase
 from accounts.models import User
 from orders.models import Order
 from orders.whatsapp import to_e164
-from store.models import Event, Product
+from store.models import Event, Product, ProductImage
 from store.storage import CloudinaryStorage
 
 ADDRESS = {"full_name": "Asha", "phone": "98765 43210", "address": "1 Main St",
@@ -69,6 +70,18 @@ class StoreFlowTests(APITestCase):
 
     def names(self, response):
         return sorted(p["name"] for p in response.data["products"])
+
+    # ----- demo data -----
+    def test_seed_finishes_a_half_done_seed_and_then_leaves_the_store_alone(self):
+        Product.objects.all().delete()
+        # What a failed first seed leaves behind: a product with no photos.
+        Product.objects.create(name="Handcrafted Clay Diya Set (12 pcs)", price=299, stock=60)
+        call_command("seed_demo", stdout=io.StringIO())
+        self.assertEqual(Product.objects.count(), 16)
+        self.assertEqual(ProductImage.objects.count(), 48)
+        Product.objects.filter(name__startswith="Ceramic").delete()
+        call_command("seed_demo", stdout=io.StringIO())
+        self.assertEqual(Product.objects.count(), 15)  # an admin's deletion is not undone
 
     # ----- auth -----
     def test_register_login_and_profile(self):
